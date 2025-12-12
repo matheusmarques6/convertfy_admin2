@@ -10,21 +10,16 @@ interface MainLayoutProps {
 }
 
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false);
+  const [sidebarCollapsed] = React.useState(true);
 
   return (
     <div className="min-h-screen bg-background">
       <Sidebar
         collapsed={sidebarCollapsed}
-        onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onToggle={() => {}}
       />
       <Header sidebarCollapsed={sidebarCollapsed} />
-      <main
-        className={cn(
-          'pt-16 min-h-screen transition-all duration-300',
-          sidebarCollapsed ? 'pl-[72px]' : 'pl-[240px]'
-        )}
-      >
+      <main className="pt-16 pl-[72px] min-h-screen">
         <div className="p-6">
           {children}
         </div>

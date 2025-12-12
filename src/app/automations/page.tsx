@@ -1,313 +1,334 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { MainLayout } from '@/components/layout';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
   Plus,
+  Search,
   Zap,
-  Play,
-  Pause,
-  MoreHorizontal,
-  Clock,
   Users,
-  DollarSign,
   Calendar,
+  DollarSign,
   FileText,
   Mail,
   MessageSquare,
   Bell,
+  MoreHorizontal,
+  Play,
+  Pause,
   ChevronRight,
   Activity,
+  Clock,
+  GitBranch,
+  ArrowRight,
 } from 'lucide-react';
 
 interface Automation {
   id: string;
   name: string;
   description: string;
-  trigger_type: string;
-  trigger_label: string;
-  is_active: boolean;
-  executions_count: number;
-  last_execution?: string;
-  actions_count: number;
+  trigger: {
+    type: string;
+    label: string;
+    icon: React.ElementType;
+  };
+  actionsCount: number;
+  isActive: boolean;
+  executions: number;
+  lastRun?: string;
+  successRate: number;
 }
 
 const mockAutomations: Automation[] = [
   {
     id: '1',
     name: 'Boas-vindas Novo Cliente',
-    description: 'Envia email e WhatsApp de boas-vindas quando um novo cliente é cadastrado',
-    trigger_type: 'new_client',
-    trigger_label: 'Novo cliente cadastrado',
-    is_active: true,
-    executions_count: 47,
-    last_execution: '2024-01-15T10:30:00Z',
-    actions_count: 3,
+    description: 'Envia email e WhatsApp quando um novo cliente é cadastrado',
+    trigger: { type: 'new_client', label: 'Novo Cliente', icon: Users },
+    actionsCount: 3,
+    isActive: true,
+    executions: 127,
+    lastRun: '2024-01-15T10:30:00Z',
+    successRate: 98.5,
   },
   {
     id: '2',
     name: 'Lembrete de Reunião',
-    description: 'Envia lembrete 2 dias e 1 hora antes da reunião agendada',
-    trigger_type: 'meeting_scheduled',
-    trigger_label: 'Reunião agendada',
-    is_active: true,
-    executions_count: 156,
-    last_execution: '2024-01-15T08:00:00Z',
-    actions_count: 2,
+    description: 'Notifica o cliente 24h antes da reunião agendada',
+    trigger: { type: 'meeting_scheduled', label: 'Reunião Agendada', icon: Calendar },
+    actionsCount: 2,
+    isActive: true,
+    executions: 89,
+    lastRun: '2024-01-15T08:00:00Z',
+    successRate: 100,
   },
   {
     id: '3',
     name: 'Cobrança Atrasada',
-    description: 'Sequência de lembretes quando pagamento está atrasado',
-    trigger_type: 'payment_overdue',
-    trigger_label: 'Pagamento atrasado',
-    is_active: true,
-    executions_count: 23,
-    last_execution: '2024-01-14T14:00:00Z',
-    actions_count: 4,
+    description: 'Envia lembretes progressivos para pagamentos em atraso',
+    trigger: { type: 'payment_overdue', label: 'Pagamento Atrasado', icon: DollarSign },
+    actionsCount: 5,
+    isActive: true,
+    executions: 34,
+    lastRun: '2024-01-14T14:00:00Z',
+    successRate: 94.1,
   },
   {
     id: '4',
-    name: 'Alerta de Queda',
-    description: 'Notifica CS quando faturamento do cliente cai mais de 20%',
-    trigger_type: 'revenue_drop',
-    trigger_label: 'Faturamento caiu >20%',
-    is_active: false,
-    executions_count: 8,
-    last_execution: '2024-01-10T16:00:00Z',
-    actions_count: 2,
+    name: 'Alerta de Queda de Receita',
+    description: 'Notifica o time quando há queda significativa no faturamento',
+    trigger: { type: 'revenue_drop', label: 'Queda de Receita', icon: Activity },
+    actionsCount: 2,
+    isActive: false,
+    executions: 12,
+    lastRun: '2024-01-10T09:00:00Z',
+    successRate: 100,
   },
   {
     id: '5',
     name: 'Renovação de Contrato',
-    description: 'Lembrete 30 dias antes do vencimento do contrato',
-    trigger_type: 'contract_expiring',
-    trigger_label: 'Contrato vence em 30 dias',
-    is_active: true,
-    executions_count: 12,
-    last_execution: '2024-01-12T09:00:00Z',
-    actions_count: 3,
+    description: 'Inicia fluxo de renovação 30 dias antes do vencimento',
+    trigger: { type: 'contract_expiring', label: 'Contrato Vencendo', icon: FileText },
+    actionsCount: 4,
+    isActive: true,
+    executions: 8,
+    lastRun: '2024-01-12T11:00:00Z',
+    successRate: 87.5,
   },
 ];
 
-const triggerIcons: Record<string, React.ElementType> = {
-  new_client: Users,
-  meeting_scheduled: Calendar,
-  payment_overdue: DollarSign,
-  revenue_drop: Activity,
-  contract_expiring: FileText,
-  report_pending: FileText,
-};
+const triggerTemplates = [
+  { id: 'onboarding', name: 'Onboarding Completo', description: 'Sequência de boas-vindas em 7 dias', icon: Users, color: '#8B5CF6' },
+  { id: 'cobranca', name: 'Cobrança Automática', description: 'Lembretes de pagamento progressivos', icon: DollarSign, color: '#F59E0B' },
+  { id: 'reuniao', name: 'Gestão de Reuniões', description: 'Confirmação e follow-up automático', icon: Calendar, color: '#3B82F6' },
+  { id: 'churn', name: 'Prevenção de Churn', description: 'Alertas e ações para reter clientes', icon: Activity, color: '#EF4444' },
+];
 
 export default function AutomationsPage() {
-  const router = useRouter();
   const [automations, setAutomations] = React.useState(mockAutomations);
+  const [search, setSearch] = React.useState('');
 
   const toggleAutomation = (id: string) => {
-    setAutomations((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, is_active: !a.is_active } : a))
+    setAutomations(prev =>
+      prev.map(a => a.id === id ? { ...a, isActive: !a.isActive } : a)
     );
   };
 
-  const activeCount = automations.filter((a) => a.is_active).length;
-  const totalExecutions = automations.reduce((acc, a) => acc + a.executions_count, 0);
+  const filteredAutomations = automations.filter(a =>
+    a.name.toLowerCase().includes(search.toLowerCase()) ||
+    a.description.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const stats = {
+    total: automations.length,
+    active: automations.filter(a => a.isActive).length,
+    executions: automations.reduce((sum, a) => sum + a.executions, 0),
+  };
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        {/* Page Header */}
+      <div className="space-y-6 animate-fade-in-up">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-text-primary">Automações</h1>
-            <p className="text-text-secondary mt-1">
-              Crie fluxos automáticos baseados em gatilhos
-            </p>
+            <p className="text-text-muted mt-1">Crie fluxos automáticos para otimizar seu trabalho</p>
           </div>
-          <Button
-            leftIcon={<Plus className="w-4 h-4" />}
-            onClick={() => router.push('/automations/new')}
-          >
-            Nova Automação
-          </Button>
+          <Link href="/automations/new">
+            <Button leftIcon={<Plus className="w-4 h-4" />}>
+              Nova Automação
+            </Button>
+          </Link>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-brand-purple/20 flex items-center justify-center">
-                <Zap className="w-5 h-5 text-brand-purple" />
-              </div>
+        <div className="grid grid-cols-4 gap-4">
+          <div className="card-dark p-5">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-text-muted">Total</p>
-                <p className="text-xl font-bold text-text-primary">
-                  {automations.length}
-                </p>
+                <p className="text-3xl font-bold text-text-primary mt-1">{stats.total}</p>
+              </div>
+              <div className="icon-circle icon-circle-purple">
+                <Zap className="w-5 h-5" />
               </div>
             </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-success/20 flex items-center justify-center">
-                <Play className="w-5 h-5 text-success" />
-              </div>
+          </div>
+          <div className="card-dark p-5">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-text-muted">Ativas</p>
-                <p className="text-xl font-bold text-success">{activeCount}</p>
+                <p className="text-3xl font-bold text-success mt-1">{stats.active}</p>
+              </div>
+              <div className="icon-circle icon-circle-green">
+                <Play className="w-5 h-5" />
               </div>
             </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-warning/20 flex items-center justify-center">
-                <Pause className="w-5 h-5 text-warning" />
-              </div>
+          </div>
+          <div className="card-dark p-5">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-text-muted">Pausadas</p>
-                <p className="text-xl font-bold text-warning">
-                  {automations.length - activeCount}
-                </p>
+                <p className="text-3xl font-bold text-warning mt-1">{stats.total - stats.active}</p>
+              </div>
+              <div className="icon-circle icon-circle-yellow">
+                <Pause className="w-5 h-5" />
               </div>
             </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-brand-cyan/20 flex items-center justify-center">
-                <Activity className="w-5 h-5 text-brand-cyan" />
-              </div>
+          </div>
+          <div className="card-dark p-5">
+            <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-text-muted">Execuções</p>
-                <p className="text-xl font-bold text-text-primary">
-                  {totalExecutions}
-                </p>
+                <p className="text-3xl font-bold text-text-primary mt-1">{stats.executions}</p>
+              </div>
+              <div className="icon-circle icon-circle-cyan">
+                <Activity className="w-5 h-5" />
               </div>
             </div>
-          </Card>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+          <input
+            type="text"
+            placeholder="Buscar automações..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full h-10 pl-10 pr-4 bg-surface border border-border rounded-xl text-text-primary text-sm placeholder:text-text-muted focus:outline-none focus:border-brand-purple/50 transition-colors"
+          />
         </div>
 
         {/* Automations List */}
-        <div className="space-y-4">
-          {automations.map((automation) => {
-            const TriggerIcon = triggerIcons[automation.trigger_type] || Zap;
+        <div className="space-y-3">
+          {filteredAutomations.map((automation) => {
+            const TriggerIcon = automation.trigger.icon;
             
             return (
-              <Card
+              <div
                 key={automation.id}
-                className={cn(
-                  'p-5 cursor-pointer transition-all hover:border-border-light',
-                  !automation.is_active && 'opacity-60'
-                )}
-                onClick={() => router.push(`/automations/${automation.id}`)}
+                className="card-dark p-5 hover:border-border-light transition-all cursor-pointer group"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    {/* Toggle */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleAutomation(automation.id);
-                      }}
-                      className={cn(
-                        'relative w-12 h-6 rounded-full transition-colors',
-                        automation.is_active ? 'bg-success' : 'bg-surface-hover'
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          'absolute top-1 w-4 h-4 rounded-full bg-white transition-transform',
-                          automation.is_active ? 'left-7' : 'left-1'
-                        )}
-                      />
-                    </button>
+                <div className="flex items-center gap-5">
+                  {/* Toggle */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleAutomation(automation.id);
+                    }}
+                    className={cn(
+                      'relative w-12 h-7 rounded-full transition-colors flex-shrink-0',
+                      automation.isActive ? 'bg-success' : 'bg-surface-hover'
+                    )}
+                  >
+                    <div className={cn(
+                      'absolute top-1 w-5 h-5 rounded-full bg-white shadow-sm transition-all',
+                      automation.isActive ? 'left-6' : 'left-1'
+                    )} />
+                  </button>
 
-                    {/* Icon */}
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-purple/20 to-brand-cyan/20 flex items-center justify-center">
-                      <TriggerIcon className="w-6 h-6 text-brand-purple" />
-                    </div>
+                  {/* Trigger Icon */}
+                  <div className={cn(
+                    'w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0',
+                    automation.isActive ? 'icon-circle-purple' : 'bg-surface-hover'
+                  )}>
+                    <TriggerIcon className={cn(
+                      'w-5 h-5',
+                      automation.isActive ? 'text-brand-purple' : 'text-text-muted'
+                    )} />
+                  </div>
 
-                    {/* Info */}
-                    <div>
-                      <h3 className="font-semibold text-text-primary">
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-text-primary group-hover:text-brand-purple transition-colors">
                         {automation.name}
                       </h3>
-                      <p className="text-sm text-text-muted mt-0.5">
-                        {automation.description}
-                      </p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <Badge variant="purple" size="sm">
-                          <Zap className="w-3 h-3 mr-1" />
-                          {automation.trigger_label}
-                        </Badge>
-                        <span className="text-xs text-text-muted">
-                          {automation.actions_count} ações
-                        </span>
-                      </div>
+                      <span className="chip chip-info text-[10px]">
+                        {automation.trigger.label}
+                      </span>
                     </div>
+                    <p className="text-sm text-text-muted mt-0.5 truncate">
+                      {automation.description}
+                    </p>
                   </div>
 
                   {/* Stats */}
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-lg font-semibold text-text-primary">
-                        {automation.executions_count}
-                      </p>
-                      <p className="text-xs text-text-muted">execuções</p>
+                  <div className="flex items-center gap-6 flex-shrink-0">
+                    <div className="text-center">
+                      <p className="text-xs text-text-muted">Ações</p>
+                      <p className="font-semibold text-text-primary">{automation.actionsCount}</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-text-muted" />
+                    <div className="text-center">
+                      <p className="text-xs text-text-muted">Execuções</p>
+                      <p className="font-semibold text-text-primary">{automation.executions}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-text-muted">Taxa</p>
+                      <p className={cn(
+                        'font-semibold',
+                        automation.successRate >= 95 ? 'text-success' :
+                        automation.successRate >= 80 ? 'text-warning' : 'text-error'
+                      )}>
+                        {automation.successRate}%
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button className="p-2 rounded-lg hover:bg-surface transition-colors text-text-muted hover:text-text-primary">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                    <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-brand-purple transition-colors" />
                   </div>
                 </div>
-              </Card>
+
+                {/* Last Run */}
+                {automation.lastRun && (
+                  <div className="mt-4 pt-4 border-t border-border flex items-center gap-1 text-xs text-text-muted">
+                    <Clock className="w-3 h-3" />
+                    Última execução: {new Date(automation.lastRun).toLocaleString('pt-BR')}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
 
         {/* Templates Section */}
         <div className="mt-8">
-          <h2 className="text-lg font-semibold text-text-primary mb-4">
-            Templates Prontos
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              {
-                icon: Users,
-                name: 'Onboarding de Cliente',
-                description: 'Sequência de boas-vindas para novos clientes',
-              },
-              {
-                icon: DollarSign,
-                name: 'Cobrança Automática',
-                description: 'Lembretes de pagamento em múltiplos canais',
-              },
-              {
-                icon: Calendar,
-                name: 'Gestão de Reuniões',
-                description: 'Lembretes e follow-ups de reuniões',
-              },
-            ].map((template, index) => (
-              <Card
-                key={index}
-                className="p-4 cursor-pointer hover:border-brand-purple/50 transition-all group"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-surface-hover group-hover:bg-brand-purple/20 flex items-center justify-center transition-colors">
-                    <template.icon className="w-5 h-5 text-text-muted group-hover:text-brand-purple transition-colors" />
+          <h2 className="text-lg font-semibold text-text-primary mb-4">Templates Prontos</h2>
+          <div className="grid grid-cols-4 gap-4">
+            {triggerTemplates.map((template) => {
+              const Icon = template.icon;
+              return (
+                <div
+                  key={template.id}
+                  className="card-dark p-5 hover:border-border-light cursor-pointer transition-all group"
+                >
+                  <div
+                    className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                    style={{ backgroundColor: `${template.color}20` }}
+                  >
+                    <Icon className="w-6 h-6" style={{ color: template.color }} />
                   </div>
-                  <div>
-                    <h3 className="font-medium text-text-primary">
-                      {template.name}
-                    </h3>
-                    <p className="text-sm text-text-muted mt-1">
-                      {template.description}
-                    </p>
+                  <h3 className="font-semibold text-text-primary group-hover:text-brand-purple transition-colors">
+                    {template.name}
+                  </h3>
+                  <p className="text-sm text-text-muted mt-1">{template.description}</p>
+                  <div className="mt-4 flex items-center text-sm text-brand-purple font-medium">
+                    Usar template
+                    <ArrowRight className="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
-              </Card>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
