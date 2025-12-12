@@ -1,542 +1,451 @@
--- Worder SaaS Database Schema
--- Run this in Supabase SQL Editor
+-- =============================================
+-- CONVERTFY ADMIN - DATABASE SCHEMA
+-- =============================================
 
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm"; -- For text search
 
--- ============================================
--- USERS & AUTHENTICATION
--- ============================================
+-- =============================================
+-- 1. USERS AND PERMISSIONS
+-- =============================================
 
--- User profiles (extends Supabase auth.users)
-CREATE TABLE profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT UNIQUE NOT NULL,
-  full_name TEXT,
+-- Roles
+CREATE TABLE roles (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(50) NOT NULL UNIQUE,
+  description TEXT,
+  permissions JSONB DEFAULT '[]',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert default roles
+INSERT INTO roles (name, description, permissions) VALUES
+  ('admin', 'Acesso total ao sistema', '["*"]'),
+  ('manager', 'Gestão de equipe e clientes', '["clients.*", "pipeline.*", "metrics.*", "reports.*"]'),
+  ('sdr', 'Prospecção e qualificação', '["leads.*", "pipeline.view", "pipeline.create"]'),
+  ('closer', 'Fechamento de vendas', '["pipeline.*", "clients.view", "meetings.*"]'),
+  ('cs', 'Sucesso do cliente', '["clients.*", "meetings.*", "reports.*", "metrics.view"]'),
+  ('finance', 'Financeiro', '["invoices.*", "payments.*", "clients.view"]');
+
+-- Users
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
   avatar_url TEXT,
-  phone TEXT,
-  role TEXT DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
-  timezone TEXT DEFAULT 'America/Sao_Paulo',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Organizations/Workspaces
-CREATE TABLE organizations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE NOT NULL,
-  logo_url TEXT,
-  plan TEXT DEFAULT 'starter' CHECK (plan IN ('starter', 'growth', 'enterprise')),
-  plan_contacts_limit INTEGER DEFAULT 1000,
-  plan_emails_limit INTEGER DEFAULT 10000,
-  billing_email TEXT,
-  stripe_customer_id TEXT,
-  stripe_subscription_id TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Organization members
-CREATE TABLE organization_members (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
-  role TEXT DEFAULT 'member' CHECK (role IN ('owner', 'admin', 'member')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(organization_id, user_id)
-);
-
--- ============================================
--- INTEGRATIONS
--- ============================================
-
--- Shopify store connections
-CREATE TABLE shopify_stores (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  shop_domain TEXT NOT NULL,
-  access_token TEXT NOT NULL,
-  shop_name TEXT,
-  shop_email TEXT,
-  currency TEXT DEFAULT 'BRL',
-  timezone TEXT,
+  role_id UUID REFERENCES roles(id),
   is_active BOOLEAN DEFAULT true,
-  last_sync_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(organization_id, shop_domain)
+  last_login TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Klaviyo connections
-CREATE TABLE klaviyo_accounts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  api_key_encrypted TEXT NOT NULL,
-  account_id TEXT,
-  account_name TEXT,
-  is_active BOOLEAN DEFAULT true,
-  last_sync_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(organization_id)
-);
+-- =============================================
+-- 2. CLIENTS
+-- =============================================
 
--- WhatsApp Business connections
-CREATE TABLE whatsapp_accounts (
+-- Clients
+CREATE TABLE clients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  phone_number TEXT NOT NULL,
-  phone_number_id TEXT NOT NULL,
-  business_account_id TEXT NOT NULL,
-  access_token_encrypted TEXT NOT NULL,
-  display_name TEXT,
-  is_active BOOLEAN DEFAULT true,
-  quality_rating TEXT DEFAULT 'green',
-  messaging_limit INTEGER DEFAULT 1000,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ============================================
--- CRM
--- ============================================
-
--- Contacts
-CREATE TABLE contacts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  email TEXT,
-  phone TEXT,
-  first_name TEXT,
-  last_name TEXT,
-  full_name TEXT GENERATED ALWAYS AS (COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) STORED,
-  avatar_url TEXT,
-  source TEXT DEFAULT 'manual',
-  shopify_customer_id TEXT,
-  klaviyo_profile_id TEXT,
-  total_orders INTEGER DEFAULT 0,
-  total_spent DECIMAL(12, 2) DEFAULT 0,
-  last_order_at TIMESTAMPTZ,
-  tags TEXT[] DEFAULT '{}',
+  name VARCHAR(255) NOT NULL,
+  company_name VARCHAR(255),
+  cnpj VARCHAR(20),
+  email VARCHAR(255) NOT NULL,
+  phone VARCHAR(20),
+  whatsapp VARCHAR(20),
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'paused', 'cancelled', 'trial')),
+  health_score VARCHAR(20) DEFAULT 'healthy' CHECK (health_score IN ('healthy', 'warning', 'critical')),
+  contract_type VARCHAR(50),
+  monthly_value DECIMAL(10, 2) DEFAULT 0,
+  total_paid DECIMAL(12, 2) DEFAULT 0,
+  responsible_id UUID REFERENCES users(id),
+  meeting_frequency VARCHAR(20) DEFAULT 'monthly' CHECK (meeting_frequency IN ('weekly', 'biweekly', 'monthly')),
+  last_meeting_date DATE,
+  next_meeting_date DATE,
+  meeting_status VARCHAR(20) DEFAULT 'on_track' CHECK (meeting_status IN ('on_track', 'delayed', 'scheduled')),
+  contract_start_date DATE,
+  contract_end_date DATE,
+  notes TEXT,
   custom_fields JSONB DEFAULT '{}',
-  is_subscribed_email BOOLEAN DEFAULT true,
-  is_subscribed_sms BOOLEAN DEFAULT false,
-  is_subscribed_whatsapp BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create index for contact search
-CREATE INDEX idx_contacts_search ON contacts USING gin(
-  (to_tsvector('portuguese', COALESCE(full_name, '') || ' ' || COALESCE(email, '') || ' ' || COALESCE(phone, '')))
+-- Client Stores (Shopify)
+CREATE TABLE client_stores (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  shopify_domain VARCHAR(255),
+  shopify_access_token TEXT,
+  is_active BOOLEAN DEFAULT true,
+  last_sync TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Tags
+CREATE TABLE tags (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(50) NOT NULL UNIQUE,
+  color VARCHAR(7) DEFAULT '#8B5CF6',
+  category VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Client Tags (many-to-many)
+CREATE TABLE client_tags (
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  tag_id UUID REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (client_id, tag_id)
+);
+
+-- =============================================
+-- 3. FINANCIAL
+-- =============================================
+
+-- Invoices
+CREATE TABLE invoices (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  amount DECIMAL(10, 2) NOT NULL,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue', 'cancelled')),
+  due_date DATE NOT NULL,
+  paid_date DATE,
+  payment_method VARCHAR(50),
+  asaas_id VARCHAR(100),
+  asaas_payment_link TEXT,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =============================================
+-- 4. MEETINGS
+-- =============================================
+
+-- Meetings
+CREATE TABLE meetings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  scheduled_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  duration_minutes INTEGER DEFAULT 60,
+  status VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled', 'no_show')),
+  recording_url TEXT,
+  notes TEXT,
+  google_event_id VARCHAR(255),
+  created_by_id UUID REFERENCES users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =============================================
+-- 5. REPORTS
+-- =============================================
+
+-- Reports
+CREATE TABLE reports (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  month VARCHAR(7) NOT NULL, -- YYYY-MM format
+  file_url TEXT,
+  metrics JSONB DEFAULT '{}',
+  notes TEXT,
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'delivered')),
+  delivered_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =============================================
+-- 6. PIPELINE
+-- =============================================
 
 -- Pipelines
 CREATE TABLE pipelines (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
+  name VARCHAR(100) NOT NULL,
   is_default BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Pipeline stages
+-- Pipeline Stages
 CREATE TABLE pipeline_stages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   pipeline_id UUID REFERENCES pipelines(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  color TEXT DEFAULT '#8b5cf6',
-  position INTEGER NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  name VARCHAR(100) NOT NULL,
+  color VARCHAR(7) DEFAULT '#8B5CF6',
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Deals
 CREATE TABLE deals (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
   pipeline_id UUID REFERENCES pipelines(id) ON DELETE CASCADE,
-  stage_id UUID REFERENCES pipeline_stages(id) ON DELETE SET NULL,
-  contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
-  assigned_to UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  title TEXT NOT NULL,
-  value DECIMAL(12, 2) DEFAULT 0,
-  currency TEXT DEFAULT 'BRL',
-  probability INTEGER DEFAULT 50 CHECK (probability >= 0 AND probability <= 100),
+  stage_id UUID REFERENCES pipeline_stages(id),
+  title VARCHAR(255) NOT NULL,
+  company_name VARCHAR(255),
+  contact_name VARCHAR(255),
+  contact_email VARCHAR(255),
+  contact_phone VARCHAR(50),
+  value DECIMAL(10, 2) DEFAULT 0,
+  probability INTEGER DEFAULT 0 CHECK (probability >= 0 AND probability <= 100),
   expected_close_date DATE,
-  status TEXT DEFAULT 'open' CHECK (status IN ('open', 'won', 'lost')),
-  lost_reason TEXT,
+  responsible_id UUID REFERENCES users(id),
   notes TEXT,
-  position INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  custom_fields JSONB DEFAULT '{}',
+  won_at TIMESTAMP WITH TIME ZONE,
+  lost_at TIMESTAMP WITH TIME ZONE,
+  lost_reason TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Deal activities
-CREATE TABLE deal_activities (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  deal_id UUID REFERENCES deals(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  type TEXT NOT NULL CHECK (type IN ('note', 'email', 'call', 'meeting', 'task', 'stage_change')),
-  title TEXT,
-  content TEXT,
-  metadata JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ============================================
--- WHATSAPP MESSAGING
--- ============================================
-
--- WhatsApp conversations
-CREATE TABLE whatsapp_conversations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  whatsapp_account_id UUID REFERENCES whatsapp_accounts(id) ON DELETE CASCADE,
-  contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
-  wa_conversation_id TEXT,
-  phone_number TEXT NOT NULL,
-  contact_name TEXT,
-  last_message_at TIMESTAMPTZ,
-  last_message_preview TEXT,
-  unread_count INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'open' CHECK (status IN ('open', 'closed', 'archived')),
-  assigned_to UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- WhatsApp messages
-CREATE TABLE whatsapp_messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  conversation_id UUID REFERENCES whatsapp_conversations(id) ON DELETE CASCADE,
-  wa_message_id TEXT,
-  direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
-  type TEXT DEFAULT 'text' CHECK (type IN ('text', 'image', 'video', 'audio', 'document', 'template', 'interactive')),
-  content TEXT,
-  media_url TEXT,
-  media_mime_type TEXT,
-  template_name TEXT,
-  status TEXT DEFAULT 'sent' CHECK (status IN ('pending', 'sent', 'delivered', 'read', 'failed')),
-  error_message TEXT,
-  metadata JSONB DEFAULT '{}',
-  sent_at TIMESTAMPTZ DEFAULT NOW(),
-  delivered_at TIMESTAMPTZ,
-  read_at TIMESTAMPTZ
-);
-
--- WhatsApp message templates
-CREATE TABLE whatsapp_templates (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  whatsapp_account_id UUID REFERENCES whatsapp_accounts(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  language TEXT DEFAULT 'pt_BR',
-  category TEXT CHECK (category IN ('marketing', 'utility', 'authentication')),
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
-  components JSONB NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ============================================
--- AUTOMATIONS
--- ============================================
+-- =============================================
+-- 7. AUTOMATIONS
+-- =============================================
 
 -- Automations
 CREATE TABLE automations (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
+  name VARCHAR(255) NOT NULL,
   description TEXT,
-  trigger_type TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT false,
+  trigger_type VARCHAR(50) NOT NULL,
   trigger_config JSONB DEFAULT '{}',
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'paused', 'archived')),
-  canvas_data JSONB DEFAULT '{}', -- Stores nodes and edges
-  stats JSONB DEFAULT '{"triggered": 0, "completed": 0, "revenue": 0}',
-  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  nodes JSONB DEFAULT '[]',
+  executions_count INTEGER DEFAULT 0,
+  last_execution TIMESTAMP WITH TIME ZONE,
+  created_by_id UUID REFERENCES users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Automation runs (executions)
-CREATE TABLE automation_runs (
+-- Automation Logs
+CREATE TABLE automation_logs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   automation_id UUID REFERENCES automations(id) ON DELETE CASCADE,
-  contact_id UUID REFERENCES contacts(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'running' CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
-  current_node_id TEXT,
-  started_at TIMESTAMPTZ DEFAULT NOW(),
-  completed_at TIMESTAMPTZ,
+  client_id UUID REFERENCES clients(id),
+  deal_id UUID REFERENCES deals(id),
+  status VARCHAR(20) DEFAULT 'success' CHECK (status IN ('success', 'error', 'skipped')),
+  executed_nodes JSONB DEFAULT '[]',
   error_message TEXT,
-  metadata JSONB DEFAULT '{}'
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Automation run steps
-CREATE TABLE automation_run_steps (
+-- =============================================
+-- 8. TEMPLATES
+-- =============================================
+
+-- Email Templates
+CREATE TABLE email_templates (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  run_id UUID REFERENCES automation_runs(id) ON DELETE CASCADE,
-  node_id TEXT NOT NULL,
-  node_type TEXT NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed', 'skipped')),
-  input_data JSONB DEFAULT '{}',
-  output_data JSONB DEFAULT '{}',
-  started_at TIMESTAMPTZ,
-  completed_at TIMESTAMPTZ,
-  error_message TEXT
-);
-
--- ============================================
--- ANALYTICS & METRICS
--- ============================================
-
--- Daily metrics aggregation
-CREATE TABLE daily_metrics (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  date DATE NOT NULL,
-  -- E-commerce metrics
-  orders_count INTEGER DEFAULT 0,
-  revenue DECIMAL(12, 2) DEFAULT 0,
-  aov DECIMAL(10, 2) DEFAULT 0,
-  new_customers INTEGER DEFAULT 0,
-  returning_customers INTEGER DEFAULT 0,
-  -- Email metrics
-  emails_sent INTEGER DEFAULT 0,
-  emails_delivered INTEGER DEFAULT 0,
-  emails_opened INTEGER DEFAULT 0,
-  emails_clicked INTEGER DEFAULT 0,
-  emails_unsubscribed INTEGER DEFAULT 0,
-  email_revenue DECIMAL(12, 2) DEFAULT 0,
-  -- WhatsApp metrics
-  whatsapp_sent INTEGER DEFAULT 0,
-  whatsapp_delivered INTEGER DEFAULT 0,
-  whatsapp_read INTEGER DEFAULT 0,
-  -- Automation metrics
-  automations_triggered INTEGER DEFAULT 0,
-  automations_completed INTEGER DEFAULT 0,
-  automation_revenue DECIMAL(12, 2) DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(organization_id, date)
-);
-
--- Campaign metrics (synced from Klaviyo)
-CREATE TABLE campaign_metrics (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  klaviyo_campaign_id TEXT,
-  name TEXT NOT NULL,
-  subject TEXT,
-  sent_at TIMESTAMPTZ,
-  recipients INTEGER DEFAULT 0,
-  delivered INTEGER DEFAULT 0,
-  opened INTEGER DEFAULT 0,
-  clicked INTEGER DEFAULT 0,
-  bounced INTEGER DEFAULT 0,
-  unsubscribed INTEGER DEFAULT 0,
-  spam_complaints INTEGER DEFAULT 0,
-  revenue DECIMAL(12, 2) DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Flow metrics (synced from Klaviyo)
-CREATE TABLE flow_metrics (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  klaviyo_flow_id TEXT,
-  name TEXT NOT NULL,
-  status TEXT DEFAULT 'manual',
-  triggered INTEGER DEFAULT 0,
-  received INTEGER DEFAULT 0,
-  opened INTEGER DEFAULT 0,
-  clicked INTEGER DEFAULT 0,
-  revenue DECIMAL(12, 2) DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ============================================
--- REPORTS
--- ============================================
-
-CREATE TABLE reports (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
-  type TEXT NOT NULL CHECK (type IN ('email', 'ecommerce', 'automation', 'crm', 'custom')),
-  config JSONB DEFAULT '{}',
-  schedule TEXT DEFAULT 'none' CHECK (schedule IN ('none', 'daily', 'weekly', 'monthly')),
-  schedule_time TIME,
-  schedule_day INTEGER, -- Day of week (0-6) or day of month (1-31)
-  recipients TEXT[] DEFAULT '{}',
-  last_run_at TIMESTAMPTZ,
-  next_run_at TIMESTAMPTZ,
-  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'manual')),
-  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- ============================================
--- API KEYS
--- ============================================
-
-CREATE TABLE api_keys (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  key_hash TEXT NOT NULL,
-  key_prefix TEXT NOT NULL, -- First 8 chars for display
-  permissions TEXT[] DEFAULT '{}',
-  last_used_at TIMESTAMPTZ,
-  expires_at TIMESTAMPTZ,
-  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Webhooks
-CREATE TABLE webhooks (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  organization_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  url TEXT NOT NULL,
-  events TEXT[] NOT NULL,
-  secret TEXT NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  subject VARCHAR(500) NOT NULL,
+  body TEXT NOT NULL,
+  variables JSONB DEFAULT '[]',
   is_active BOOLEAN DEFAULT true,
-  last_triggered_at TIMESTAMPTZ,
-  failure_count INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- ============================================
--- ROW LEVEL SECURITY
--- ============================================
+-- WhatsApp Templates
+CREATE TABLE whatsapp_templates (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  variables JSONB DEFAULT '[]',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
 
--- Enable RLS on all tables
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE organizations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE organization_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE shopify_stores ENABLE ROW LEVEL SECURITY;
-ALTER TABLE klaviyo_accounts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE whatsapp_accounts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pipelines ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pipeline_stages ENABLE ROW LEVEL SECURITY;
+-- =============================================
+-- 9. ACTIVITIES / TIMELINE
+-- =============================================
+
+-- Activities
+CREATE TABLE activities (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  deal_id UUID REFERENCES deals(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  metadata JSONB DEFAULT '{}',
+  created_by_id UUID REFERENCES users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =============================================
+-- 10. INTEGRATIONS
+-- =============================================
+
+-- Integration Configs (per client)
+CREATE TABLE client_integrations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  integration_type VARCHAR(50) NOT NULL,
+  config JSONB DEFAULT '{}',
+  is_active BOOLEAN DEFAULT true,
+  last_sync TIMESTAMP WITH TIME ZONE,
+  error_message TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(client_id, integration_type)
+);
+
+-- Metrics Cache
+CREATE TABLE metrics_cache (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
+  store_id UUID REFERENCES client_stores(id) ON DELETE CASCADE,
+  source VARCHAR(50) NOT NULL, -- shopify, meta_ads, google_ads, klaviyo, instagram
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  metrics JSONB NOT NULL,
+  fetched_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(client_id, store_id, source, period_start, period_end)
+);
+
+-- =============================================
+-- 11. SETTINGS
+-- =============================================
+
+-- System Settings
+CREATE TABLE settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  key VARCHAR(100) NOT NULL UNIQUE,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Insert default settings
+INSERT INTO settings (key, value) VALUES
+  ('company', '{"name": "Convertfy", "logo_url": null}'),
+  ('goals', '{"monthly_revenue": 100000, "new_clients": 8, "leads": 200, "conversion_rate": 35}'),
+  ('notifications', '{"email": true, "whatsapp": true, "slack": false}');
+
+-- =============================================
+-- ROW LEVEL SECURITY (RLS)
+-- =============================================
+
+-- Enable RLS
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE clients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE meetings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE deals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE deal_activities ENABLE ROW LEVEL SECURITY;
-ALTER TABLE whatsapp_conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE whatsapp_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE whatsapp_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE automation_runs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE automation_run_steps ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_metrics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE campaign_metrics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE flow_metrics ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
-ALTER TABLE webhooks ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies (example for contacts - apply similar to all tables)
-CREATE POLICY "Users can view contacts in their organization"
-  ON contacts FOR SELECT
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
-  );
+-- Policies (example - adjust based on your auth setup)
+CREATE POLICY "Users can view their own profile" ON users
+  FOR SELECT USING (auth.uid() = id);
 
-CREATE POLICY "Users can insert contacts in their organization"
-  ON contacts FOR INSERT
-  WITH CHECK (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
-  );
+CREATE POLICY "Authenticated users can view clients" ON clients
+  FOR SELECT USING (auth.role() = 'authenticated');
 
-CREATE POLICY "Users can update contacts in their organization"
-  ON contacts FOR UPDATE
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members WHERE user_id = auth.uid()
-    )
-  );
+-- =============================================
+-- INDEXES
+-- =============================================
 
-CREATE POLICY "Users can delete contacts in their organization"
-  ON contacts FOR DELETE
-  USING (
-    organization_id IN (
-      SELECT organization_id FROM organization_members 
-      WHERE user_id = auth.uid() AND role IN ('owner', 'admin')
-    )
-  );
+CREATE INDEX idx_clients_status ON clients(status);
+CREATE INDEX idx_clients_health_score ON clients(health_score);
+CREATE INDEX idx_clients_responsible ON clients(responsible_id);
+CREATE INDEX idx_invoices_client ON invoices(client_id);
+CREATE INDEX idx_invoices_status ON invoices(status);
+CREATE INDEX idx_invoices_due_date ON invoices(due_date);
+CREATE INDEX idx_meetings_client ON meetings(client_id);
+CREATE INDEX idx_meetings_date ON meetings(scheduled_date);
+CREATE INDEX idx_deals_pipeline ON deals(pipeline_id);
+CREATE INDEX idx_deals_stage ON deals(stage_id);
+CREATE INDEX idx_activities_client ON activities(client_id);
+CREATE INDEX idx_activities_created ON activities(created_at DESC);
+CREATE INDEX idx_automation_logs_automation ON automation_logs(automation_id);
+CREATE INDEX idx_metrics_cache_client ON metrics_cache(client_id);
 
--- ============================================
--- FUNCTIONS & TRIGGERS
--- ============================================
+-- =============================================
+-- FUNCTIONS
+-- =============================================
 
 -- Update updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at()
+CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
   NEW.updated_at = NOW();
   RETURN NEW;
 END;
+$$ language 'plpgsql';
+
+-- Create triggers for updated_at
+CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_clients_updated_at BEFORE UPDATE ON clients
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_invoices_updated_at BEFORE UPDATE ON invoices
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_deals_updated_at BEFORE UPDATE ON deals
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_automations_updated_at BEFORE UPDATE ON automations
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Calculate client health score
+CREATE OR REPLACE FUNCTION calculate_client_health_score(client_uuid UUID)
+RETURNS VARCHAR(20) AS $$
+DECLARE
+  score INTEGER := 100;
+  meeting_delay INTEGER;
+  overdue_invoices INTEGER;
+BEGIN
+  -- Check meeting delay
+  SELECT EXTRACT(DAY FROM NOW() - last_meeting_date)::INTEGER
+  INTO meeting_delay
+  FROM clients WHERE id = client_uuid;
+  
+  IF meeting_delay > 60 THEN
+    score := score - 40;
+  ELSIF meeting_delay > 30 THEN
+    score := score - 20;
+  END IF;
+  
+  -- Check overdue invoices
+  SELECT COUNT(*)
+  INTO overdue_invoices
+  FROM invoices
+  WHERE client_id = client_uuid
+    AND status = 'overdue';
+  
+  IF overdue_invoices > 2 THEN
+    score := score - 40;
+  ELSIF overdue_invoices > 0 THEN
+    score := score - 20;
+  END IF;
+  
+  IF score >= 70 THEN
+    RETURN 'healthy';
+  ELSIF score >= 40 THEN
+    RETURN 'warning';
+  ELSE
+    RETURN 'critical';
+  END IF;
+END;
 $$ LANGUAGE plpgsql;
 
--- Apply to all tables with updated_at
-CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_organizations_updated_at BEFORE UPDATE ON organizations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_contacts_updated_at BEFORE UPDATE ON contacts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_deals_updated_at BEFORE UPDATE ON deals FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_automations_updated_at BEFORE UPDATE ON automations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+-- Insert default pipeline
+INSERT INTO pipelines (name, is_default) VALUES ('Vendas', true);
 
--- Create profile on user signup
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO profiles (id, email, full_name)
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name');
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
-
--- ============================================
--- INDEXES FOR PERFORMANCE
--- ============================================
-
-CREATE INDEX idx_contacts_organization ON contacts(organization_id);
-CREATE INDEX idx_contacts_email ON contacts(email);
-CREATE INDEX idx_contacts_phone ON contacts(phone);
-CREATE INDEX idx_deals_organization ON deals(organization_id);
-CREATE INDEX idx_deals_pipeline ON deals(pipeline_id);
-CREATE INDEX idx_deals_stage ON deals(stage_id);
-CREATE INDEX idx_deals_contact ON deals(contact_id);
-CREATE INDEX idx_automations_organization ON automations(organization_id);
-CREATE INDEX idx_automations_status ON automations(status);
-CREATE INDEX idx_daily_metrics_org_date ON daily_metrics(organization_id, date);
-CREATE INDEX idx_whatsapp_conversations_org ON whatsapp_conversations(organization_id);
-CREATE INDEX idx_whatsapp_messages_conversation ON whatsapp_messages(conversation_id);
-
--- ============================================
--- SEED DATA (Optional - for development)
--- ============================================
-
--- Insert default pipeline stages
--- Run after creating an organization
--- INSERT INTO pipeline_stages (pipeline_id, name, color, position) VALUES
---   ('pipeline-uuid', 'Lead', '#64748b', 0),
---   ('pipeline-uuid', 'Contato', '#8b5cf6', 1),
---   ('pipeline-uuid', 'Proposta', '#06b6d4', 2),
---   ('pipeline-uuid', 'Negociação', '#f59e0b', 3),
---   ('pipeline-uuid', 'Fechado', '#10b981', 4);
+INSERT INTO pipeline_stages (pipeline_id, name, color, sort_order) 
+SELECT id, 'Leads', '#71717A', 1 FROM pipelines WHERE name = 'Vendas'
+UNION ALL
+SELECT id, 'Qualificados', '#3B82F6', 2 FROM pipelines WHERE name = 'Vendas'
+UNION ALL
+SELECT id, 'Reunião Agendada', '#8B5CF6', 3 FROM pipelines WHERE name = 'Vendas'
+UNION ALL
+SELECT id, 'Proposta Enviada', '#F59E0B', 4 FROM pipelines WHERE name = 'Vendas'
+UNION ALL
+SELECT id, 'Negociação', '#06B6D4', 5 FROM pipelines WHERE name = 'Vendas'
+UNION ALL
+SELECT id, 'Fechado', '#22C55E', 6 FROM pipelines WHERE name = 'Vendas';

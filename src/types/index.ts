@@ -1,432 +1,246 @@
-// ===============================
-// USER & AUTH TYPES
-// ===============================
+// User types
 export interface User {
   id: string;
   email: string;
   name: string;
   avatar_url?: string;
+  role: 'admin' | 'manager' | 'sdr' | 'closer' | 'cs' | 'finance';
+  created_at: string;
+}
+
+// Client types
+export interface Client {
+  id: string;
+  name: string;
   company_name?: string;
-  organization_id?: string;
-  role?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-// ===============================
-// SHOPIFY TYPES
-// ===============================
-export interface ShopifyStore {
-  id: string;
-  user_id: string;
-  shop_domain: string;
-  access_token: string;
-  shop_name: string;
-  currency: string;
-  created_at: string;
-}
-
-export interface ShopifyOrder {
-  id: string;
-  order_number: number;
+  cnpj?: string;
   email: string;
-  total_price: string;
-  subtotal_price: string;
-  currency: string;
-  financial_status: 'pending' | 'paid' | 'refunded' | 'voided';
-  fulfillment_status: 'fulfilled' | 'partial' | 'unfulfilled' | null;
-  customer: ShopifyCustomer;
-  line_items: ShopifyLineItem[];
-  created_at: string;
-  source_name?: string;
-  tags?: string;
-  note?: string;
-}
-
-export interface ShopifyCustomer {
-  id: string;
-  email: string;
-  first_name: string;
-  last_name: string;
   phone?: string;
-  orders_count: number;
-  total_spent: string;
-  tags?: string;
+  whatsapp?: string;
+  status: 'active' | 'paused' | 'cancelled' | 'trial';
+  health_score: 'healthy' | 'warning' | 'critical';
+  contract_type?: string;
+  monthly_value: number;
+  total_paid: number;
+  stores_count: number;
+  responsible_id?: string;
+  responsible?: User;
+  meeting_frequency: 'weekly' | 'biweekly' | 'monthly';
+  last_meeting_date?: string;
+  next_meeting_date?: string;
+  meeting_status: 'on_track' | 'delayed' | 'scheduled';
+  contract_start_date?: string;
+  contract_end_date?: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ClientStore {
+  id: string;
+  client_id: string;
+  name: string;
+  shopify_domain: string;
+  shopify_access_token?: string;
+  is_active: boolean;
   created_at: string;
 }
 
-export interface ShopifyLineItem {
+// Financial types
+export interface Invoice {
   id: string;
+  client_id: string;
+  client?: Client;
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+  due_date: string;
+  paid_date?: string;
+  payment_method?: string;
+  asaas_id?: string;
+  created_at: string;
+}
+
+// Meeting types
+export interface Meeting {
+  id: string;
+  client_id: string;
+  client?: Client;
   title: string;
-  quantity: number;
-  price: string;
-  sku?: string;
-  variant_title?: string;
-  product_id: string;
-}
-
-// ===============================
-// KLAVIYO TYPES
-// ===============================
-export interface KlaviyoIntegration {
-  id: string;
-  user_id: string;
-  api_key: string;
-  public_api_key?: string;
+  date: string;
+  duration_minutes: number;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+  recording_url?: string;
+  notes?: string;
+  created_by_id: string;
   created_at: string;
 }
 
-export interface KlaviyoCampaign {
+// Report types
+export interface Report {
   id: string;
-  name: string;
-  status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled';
-  send_time?: string;
+  client_id: string;
+  client?: Client;
+  month: string; // YYYY-MM format
+  file_url?: string;
+  metrics: Record<string, number>;
+  notes?: string;
+  status: 'pending' | 'delivered';
+  delivered_at?: string;
   created_at: string;
-  updated_at: string;
-  stats?: KlaviyoCampaignStats;
 }
 
-export interface KlaviyoCampaignStats {
-  recipients: number;
-  delivered: number;
-  opened: number;
-  clicked: number;
-  bounced: number;
-  unsubscribed: number;
-  revenue: number;
-}
-
-export interface KlaviyoFlow {
-  id: string;
-  name: string;
-  status: 'draft' | 'live' | 'paused';
-  trigger_type: string;
-  created_at: string;
-  updated_at: string;
-  stats?: KlaviyoFlowStats;
-}
-
-export interface KlaviyoFlowStats {
-  recipients: number;
-  revenue: number;
-  conversion_rate: number;
-}
-
-export interface KlaviyoMetrics {
-  total_revenue: number;
-  total_orders: number;
-  average_order_value: number;
-  open_rate: number;
-  click_rate: number;
-  conversion_rate: number;
-  subscribers: number;
-  unsubscribe_rate: number;
-}
-
-// ===============================
-// CRM TYPES
-// ===============================
+// Pipeline types
 export interface Pipeline {
   id: string;
-  user_id: string;
   name: string;
-  description?: string;
-  color: string;
-  position: number;
+  stages: PipelineStage[];
+  is_default: boolean;
   created_at: string;
-  updated_at: string;
-  columns: PipelineColumn[];
 }
 
-export interface PipelineColumn {
+export interface PipelineStage {
   id: string;
   pipeline_id: string;
   name: string;
   color: string;
-  position: number;
-  created_at: string;
-}
-
-export interface Contact {
-  id: string;
-  user_id: string;
-  name: string;
-  email?: string;
-  phone?: string;
-  whatsapp?: string;
-  company?: string;
-  position?: string;
-  avatar_url?: string;
-  tags: string[];
-  custom_fields: Record<string, string | number | boolean>;
-  shopify_customer_id?: string;
-  total_revenue: number;
-  total_orders: number;
-  last_order_date?: string;
-  created_at: string;
-  updated_at: string;
+  order: number;
+  deals_count: number;
+  deals_value: number;
 }
 
 export interface Deal {
   id: string;
   pipeline_id: string;
-  column_id: string;
-  contact_id: string;
-  user_id: string;
+  stage_id: string;
   title: string;
+  company_name?: string;
+  contact_name?: string;
+  contact_email?: string;
+  contact_phone?: string;
   value: number;
-  currency: string;
   probability: number;
   expected_close_date?: string;
+  responsible_id?: string;
+  responsible?: User;
   notes?: string;
-  position: number;
+  tags: string[];
   created_at: string;
   updated_at: string;
-  contact?: Contact;
 }
 
-export interface Activity {
-  id: string;
-  user_id: string;
-  contact_id?: string;
-  deal_id?: string;
-  type: 'call' | 'email' | 'meeting' | 'note' | 'whatsapp' | 'task';
-  title: string;
-  description?: string;
-  completed: boolean;
-  due_date?: string;
-  completed_at?: string;
-  created_at: string;
-}
-
-// ===============================
-// WHATSAPP TYPES
-// ===============================
-export interface WhatsAppIntegration {
-  id: string;
-  user_id: string;
-  phone_number: string;
-  phone_number_id: string;
-  business_account_id: string;
-  access_token: string;
-  webhook_secret?: string;
-  status: 'active' | 'disconnected' | 'pending';
-  created_at: string;
-}
-
-export interface WhatsAppConversation {
-  id: string;
-  user_id: string;
-  contact_id?: string;
-  phone_number: string;
-  contact_name?: string;
-  last_message?: string;
-  last_message_at?: string;
-  unread_count: number;
-  status: 'open' | 'closed' | 'pending';
-  assigned_to?: string;
-  created_at: string;
-}
-
-export interface WhatsAppMessage {
-  id: string;
-  conversation_id: string;
-  from_number: string;
-  to_number: string;
-  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'template';
-  content: string;
-  media_url?: string;
-  status: 'sent' | 'delivered' | 'read' | 'failed';
-  is_outgoing: boolean;
-  created_at: string;
-}
-
-export interface WhatsAppTemplate {
-  id: string;
-  user_id: string;
-  name: string;
-  language: string;
-  category: 'marketing' | 'utility' | 'authentication';
-  status: 'approved' | 'pending' | 'rejected';
-  components: WhatsAppTemplateComponent[];
-  created_at: string;
-}
-
-export interface WhatsAppTemplateComponent {
-  type: 'header' | 'body' | 'footer' | 'button';
-  text?: string;
-  format?: string;
-  buttons?: { type: string; text: string; url?: string }[];
-}
-
-// ===============================
-// AUTOMATION TYPES
-// ===============================
+// Automation types
 export interface Automation {
   id: string;
-  user_id: string;
   name: string;
   description?: string;
-  status: 'active' | 'paused' | 'draft';
-  trigger: AutomationTrigger;
+  is_active: boolean;
+  trigger_type: TriggerType;
+  trigger_config: Record<string, unknown>;
   nodes: AutomationNode[];
-  edges: AutomationEdge[];
-  stats?: AutomationStats;
+  executions_count: number;
+  last_execution?: string;
   created_at: string;
   updated_at: string;
 }
 
-export interface AutomationTrigger {
-  type: 'order_created' | 'order_paid' | 'order_fulfilled' | 'cart_abandoned' | 
-        'customer_created' | 'tag_added' | 'form_submitted' | 'date_trigger' | 'manual';
-  config: Record<string, any>;
-}
+export type TriggerType = 
+  | 'new_client'
+  | 'client_status_changed'
+  | 'payment_received'
+  | 'payment_overdue'
+  | 'meeting_scheduled'
+  | 'meeting_delayed'
+  | 'report_pending'
+  | 'contract_expiring'
+  | 'deal_stage_changed'
+  | 'deal_won'
+  | 'deal_lost'
+  | 'scheduled'
+  | 'webhook';
+
+export type ActionType =
+  | 'send_email'
+  | 'send_whatsapp'
+  | 'send_sms'
+  | 'create_task'
+  | 'notification'
+  | 'update_field'
+  | 'add_tag'
+  | 'remove_tag'
+  | 'create_invoice'
+  | 'webhook'
+  | 'delay';
 
 export interface AutomationNode {
   id: string;
-  type: string; // e.g., 'trigger_order', 'action_email', 'logic_delay', etc.
+  type: 'trigger' | 'condition' | 'action' | 'delay';
+  action_type?: ActionType;
+  config: Record<string, unknown>;
   position: { x: number; y: number };
-  data: AutomationNodeData;
+  next_nodes: string[];
 }
 
-export interface AutomationNodeData {
-  label: string;
-  description?: string;
-  config: Record<string, any>;
-  stats?: {
-    sent?: number;
-    opened?: number;
-    clicked?: number;
-    converted?: number;
-  };
-  // For action nodes
-  action_type?: 'send_whatsapp' | 'send_email' | 'send_sms' | 'add_tag' | 'remove_tag' | 
-                'create_deal' | 'update_contact' | 'webhook';
-  // For condition nodes
-  condition_type?: 'has_tag' | 'order_value' | 'customer_tag' | 'time_since' | 'custom';
-  // For delay nodes
-  delay_type?: 'minutes' | 'hours' | 'days' | 'specific_time';
-  delay_value?: number;
-}
-
-export interface AutomationEdge {
-  id: string;
-  source: string;
-  target: string;
-  sourceHandle?: string;
-  targetHandle?: string;
-  label?: string;
-  animated?: boolean;
-}
-
-export interface AutomationStats {
-  total_runs: number;
-  successful_runs: number;
-  failed_runs: number;
-  messages_sent: number;
-  revenue_generated: number;
-}
-
-// ===============================
-// DASHBOARD TYPES
-// ===============================
+// Dashboard metrics
 export interface DashboardMetrics {
-  // Email Marketing Metrics
-  email_revenue: number;
-  email_revenue_change: number;
-  email_orders: number;
-  email_orders_change: number;
-  email_conversion_rate: number;
-  email_conversion_rate_change: number;
-  
-  // Operation Metrics
-  total_revenue: number;
-  total_revenue_change: number;
-  total_orders: number;
-  total_orders_change: number;
-  average_order_value: number;
-  aov_change: number;
-  
-  // Engagement Metrics
-  open_rate: number;
-  click_rate: number;
-  unsubscribe_rate: number;
-  
-  // Attribution
-  email_attribution_percentage: number;
+  revenue: {
+    current_month: number;
+    previous_month: number;
+    mrr: number;
+    pending: number;
+    overdue: number;
+  };
+  clients: {
+    total: number;
+    active: number;
+    new_this_month: number;
+    churn_this_month: number;
+  };
+  meetings: {
+    scheduled: number;
+    completed_this_month: number;
+    delayed: number;
+  };
+  reports: {
+    pending: number;
+    delivered_this_month: number;
+  };
+  pipeline: {
+    total_value: number;
+    deals_count: number;
+    won_this_month: number;
+    conversion_rate: number;
+  };
 }
 
-export interface RevenueChartData {
-  date: string;
-  email_revenue: number;
-  total_revenue: number;
-  orders: number;
-}
-
-export interface TopCampaign {
+// Tags
+export interface Tag {
   id: string;
   name: string;
-  sent_date: string;
-  recipients: number;
-  revenue: number;
-  open_rate: number;
-  click_rate: number;
+  color: string;
+  category?: string;
 }
 
-export interface TopFlow {
+// Activity/Timeline
+export interface Activity {
   id: string;
+  client_id?: string;
+  deal_id?: string;
+  type: 'meeting' | 'payment' | 'report' | 'note' | 'status_change' | 'automation';
+  title: string;
+  description?: string;
+  metadata?: Record<string, unknown>;
+  created_by_id?: string;
+  created_by?: User;
+  created_at: string;
+}
+
+// Settings
+export interface Integration {
+  id: string;
+  type: 'asaas' | 'meta_ads' | 'google_ads' | 'klaviyo' | 'shopify' | 'instagram' | 'whatsapp' | 'google_calendar';
   name: string;
-  status: 'live' | 'paused';
-  revenue: number;
-  recipients: number;
-  conversion_rate: number;
-}
-
-// ===============================
-// API RESPONSE TYPES
-// ===============================
-export interface ApiResponse<T> {
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  per_page: number;
-  total_pages: number;
-}
-
-// ===============================
-// UI TYPES
-// ===============================
-export interface NavItem {
-  title: string;
-  href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
-  children?: NavItem[];
-}
-
-export interface SelectOption {
-  value: string;
-  label: string;
-  icon?: React.ComponentType<{ className?: string }>;
-}
-
-export interface TableColumn<T> {
-  key: keyof T | string;
-  title: string;
-  sortable?: boolean;
-  render?: (value: any, row: T) => React.ReactNode;
-  width?: string;
-}
-
-export interface FilterConfig {
-  key: string;
-  label: string;
-  type: 'text' | 'select' | 'date' | 'daterange' | 'number';
-  options?: SelectOption[];
+  is_connected: boolean;
+  config?: Record<string, unknown>;
+  last_sync?: string;
+  error_message?: string;
 }

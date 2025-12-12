@@ -1,332 +1,200 @@
-# Worder
+# Convertfy Admin
 
-<div align="center">
-  <img src="public/logo.svg" alt="Worder Logo" width="120" height="120" />
-  <h3>Marketing Automation & CRM Platform</h3>
-  <p>Powerful dashboard for Shopify stores to track email marketing ROI, manage customer relationships, and automate communications.</p>
-</div>
+Sistema administrativo SaaS para gestão de agência de e-commerce.
 
----
+## 🚀 Funcionalidades
 
-## ✨ Features
+### Dashboard Principal
+- Métricas financeiras em tempo real (faturamento, MRR, inadimplência)
+- Alertas de reuniões atrasadas, cobranças pendentes, contratos vencendo
+- KPIs comerciais (leads, conversão, pipeline)
+- Gráficos interativos de evolução
 
-### 📊 Analytics Dashboard
-- Real-time revenue and order tracking
-- Email marketing performance metrics
-- Campaign attribution analysis
-- Visual charts and graphs with date range filtering
+### Gestão de Clientes
+- Listagem com filtros avançados e busca
+- Ficha completa com abas (Dados, Financeiro, Reuniões, Relatórios, Métricas, Timeline)
+- Score de saúde automático (🟢 Saudável, 🟡 Atenção, 🔴 Crítico)
+- Sistema de tags e campos customizados
+- Múltiplas lojas Shopify por cliente
 
-### 📧 Email Marketing (Klaviyo Integration)
-- Campaign performance tracking
-- Open rates, click rates, and conversions
-- Delivery analytics and health monitoring
-- Top performing campaigns
+### Pipeline de Vendas
+- Kanban drag-and-drop
+- Múltiplos pipelines configuráveis
+- Valor por etapa
+- Campos customizados nos cards
 
-### 🛒 E-commerce Analytics (Shopify Integration)
-- Revenue and order metrics
-- Average order value tracking
-- Customer acquisition analysis
-- Product performance insights
+### Métricas Consolidadas
+- Meta Ads (Facebook/Instagram)
+- Google Ads
+- Shopify
+- Klaviyo
+- Instagram
 
-### 💬 WhatsApp Business
-- Real-time conversation management
-- Message status tracking (sent, delivered, read)
-- Contact info panel
-- Template message support
+### Automações
+- Construtor visual de fluxos
+- Gatilhos: novo cliente, pagamento, reunião, contrato, pipeline
+- Ações: email, WhatsApp, SMS, notificação, webhook
+- Logs de execução
 
-### 🎯 CRM with Kanban Board
-- Visual deal pipeline management
-- Drag-and-drop card organization
-- Multiple pipeline support
-- Contact management with activity history
+### Hub de Ferramentas
+- Gerador de assuntos de email (IA)
+- Gerador de copy (IA)
+- Calculadora ROAS
+- Benchmark de clientes
 
-### ⚡ Automation Builder
-- Visual flow canvas with drag-and-drop
-- 18+ node types (triggers, actions, logic)
-- Pre-built automation templates
-- A/B testing and conditional branching
+## 🛠️ Stack Tecnológica
 
-### ⚙️ Settings & Integrations
-- Profile and team management
-- Integration connections (Shopify, Klaviyo, WhatsApp, Meta)
-- Billing and usage monitoring
-- API key management
+- **Frontend:** Next.js 16 + TypeScript + Tailwind CSS v4
+- **Backend:** Supabase (Auth, Database, Edge Functions, Realtime)
+- **Hospedagem:** Vercel
+- **Banco de Dados:** PostgreSQL via Supabase
 
----
+## 📦 Pré-requisitos
 
-## 🚀 Getting Started
+- Node.js 18+
+- npm ou yarn
+- Conta no [Supabase](https://supabase.com)
+- Conta na [Vercel](https://vercel.com) (para deploy)
 
-### Prerequisites
+## 🔧 Instalação
 
-- Node.js 18+ 
-- npm or yarn
-- Supabase account
-- Shopify Partner account (for integration)
-- Klaviyo account (for email marketing)
-- Meta Business account (for WhatsApp)
+### 1. Clone o repositório
 
-### Installation
+```bash
+git clone https://github.com/seu-usuario/convertfy-admin.git
+cd convertfy-admin
+```
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/worder.git
-   cd worder
-   ```
+### 2. Instale as dependências
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+```
 
-3. **Set up environment variables**
-   ```bash
-   cp .env.example .env.local
-   ```
-   Edit `.env.local` with your credentials.
+### 3. Configure o Supabase
 
-4. **Set up Supabase**
-   - Create a new Supabase project
-   - Run the schema migration:
-     ```bash
-     # Using Supabase CLI
-     supabase db push
-     
-     # Or manually run the SQL in supabase/schema.sql
-     ```
+1. Crie um novo projeto em [supabase.com](https://supabase.com)
+2. Vá em **Project Settings > API** e copie:
+   - `Project URL`
+   - `anon/public key`
+3. Vá em **SQL Editor** e execute o conteúdo de `supabase/schema.sql`
 
-5. **Run the development server**
-   ```bash
-   npm run dev
-   ```
+### 4. Configure as variáveis de ambiente
 
-6. **Open the app**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+```bash
+cp .env.example .env.local
+```
 
----
+Edite `.env.local` com suas credenciais:
 
-## 🏗️ Tech Stack
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-anon-key
+```
 
-| Category | Technology |
-|----------|------------|
-| Framework | Next.js 14 (App Router) |
-| Language | TypeScript |
-| Styling | Tailwind CSS |
-| Database | Supabase (PostgreSQL) |
-| Auth | Supabase Auth |
-| State | Zustand |
-| Charts | Recharts |
-| Drag & Drop | DnD Kit |
-| Animations | Framer Motion |
-| Icons | Lucide React |
-| Deployment | Vercel |
+### 5. Execute o projeto
 
----
+```bash
+npm run dev
+```
 
-## 📁 Project Structure
+Acesse: [http://localhost:3000](http://localhost:3000)
+
+## 🚀 Deploy na Vercel
+
+1. Instale a CLI da Vercel:
+```bash
+npm i -g vercel
+```
+
+2. Execute o deploy:
+```bash
+vercel
+```
+
+3. Configure as variáveis de ambiente no dashboard da Vercel.
+
+## 🔌 Integrações
+
+### Asaas (Pagamentos)
+1. Acesse [asaas.com](https://www.asaas.com) e crie uma conta
+2. Vá em **Configurações > Integrações > API**
+3. Copie a API Key e configure no sistema
+
+### Meta Ads (Facebook/Instagram)
+1. Acesse [developers.facebook.com](https://developers.facebook.com)
+2. Crie um App e configure o Marketing API
+3. Gere um Access Token com permissões de leitura
+
+### Google Ads
+1. Acesse [Google Ads API](https://developers.google.com/google-ads/api)
+2. Siga o guia de configuração OAuth
+3. Obtenha o Developer Token
+
+### Klaviyo
+1. Acesse [Klaviyo](https://www.klaviyo.com)
+2. Vá em **Account > Settings > API Keys**
+3. Crie uma Private API Key
+
+## 📁 Estrutura de Pastas
 
 ```
-worder/
+convertfy-admin/
+├── public/              # Arquivos estáticos
 ├── src/
-│   ├── app/                    # Next.js App Router
-│   │   ├── (dashboard)/        # Protected dashboard routes
-│   │   │   ├── dashboard/      # Main dashboard
-│   │   │   ├── crm/            # CRM Kanban
-│   │   │   ├── whatsapp/       # WhatsApp messaging
-│   │   │   ├── automations/    # Automation builder
-│   │   │   ├── analytics/      # Analytics pages
-│   │   │   │   ├── email/
-│   │   │   │   ├── ecommerce/
-│   │   │   │   └── reports/
-│   │   │   ├── settings/       # Settings pages
-│   │   │   └── help/           # Help center
-│   │   ├── api/                # API routes
-│   │   │   ├── auth/           # Authentication
-│   │   │   ├── shopify/        # Shopify webhooks
-│   │   │   ├── klaviyo/        # Klaviyo integration
-│   │   │   ├── whatsapp/       # WhatsApp Business API
-│   │   │   ├── automations/    # Automation engine
-│   │   │   ├── contacts/       # Contact management
-│   │   │   ├── deals/          # CRM deals/pipelines
-│   │   │   └── analytics/      # Analytics data
-│   │   ├── globals.css         # Global styles
-│   │   ├── layout.tsx          # Root layout
-│   │   └── page.tsx            # Login page
+│   ├── app/             # Páginas (App Router)
+│   │   ├── page.tsx     # Dashboard
+│   │   ├── clients/     # Gestão de clientes
+│   │   ├── pipeline/    # Pipeline Kanban
+│   │   ├── automations/ # Automações
+│   │   ├── metrics/     # Métricas
+│   │   ├── hub/         # Ferramentas
+│   │   └── settings/    # Configurações
 │   ├── components/
-│   │   ├── ui/                 # Base UI components
-│   │   ├── layout/             # Layout components
-│   │   ├── dashboard/          # Dashboard components
-│   │   ├── crm/                # CRM components
-│   │   ├── whatsapp/           # WhatsApp components
-│   │   └── automation/         # Automation builder
+│   │   ├── ui/          # Componentes base
+│   │   ├── layout/      # Layout (Sidebar, Header)
+│   │   └── dashboard/   # Componentes do dashboard
 │   ├── lib/
-│   │   ├── supabase.ts         # Supabase client
-│   │   └── utils.ts            # Utility functions
-│   ├── stores/
-│   │   └── index.ts            # Zustand stores
-│   └── types/
-│       └── index.ts            # TypeScript types
-├── supabase/
-│   └── schema.sql              # Database schema
-├── public/                     # Static assets
-├── .env.example                # Environment template
-├── package.json
-├── tailwind.config.ts
-├── tsconfig.json
-└── README.md
+│   │   ├── utils.ts     # Utilitários
+│   │   └── supabase/    # Clients Supabase
+│   ├── hooks/           # Custom hooks
+│   ├── stores/          # Zustand stores
+│   └── types/           # TypeScript types
+└── supabase/
+    └── schema.sql       # Schema do banco de dados
 ```
-
----
-
-## 🔌 Integrations
-
-### 📊 Ads Platforms (NEW!)
-
-#### Facebook Ads (Meta)
-1. Create app at [Meta for Developers](https://developers.facebook.com/apps/)
-2. Add "Marketing API" product
-3. Configure OAuth redirect URI: `https://your-domain.com/api/integrations/meta/callback`
-4. Set `META_APP_ID` and `META_APP_SECRET` in `.env.local`
-
-#### Google Ads
-1. Create project at [Google Cloud Console](https://console.cloud.google.com/)
-2. Enable Google Ads API
-3. Create OAuth 2.0 credentials
-4. Get Developer Token at [Google Ads API Center](https://ads.google.com/aw/apicenter)
-5. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `GOOGLE_ADS_DEVELOPER_TOKEN`
-
-#### TikTok Ads
-1. Create app at [TikTok Business API Portal](https://business-api.tiktok.com/portal/apps)
-2. Request Marketing API access
-3. Configure OAuth redirect URI: `https://your-domain.com/api/integrations/tiktok/callback`
-4. Set `TIKTOK_APP_ID` and `TIKTOK_APP_SECRET`
-
-### Shopify Setup
-
-1. Create a Shopify app at [partners.shopify.com](https://partners.shopify.com)
-2. Configure OAuth scopes:
-   - `read_orders`, `read_customers`, `read_checkouts`
-3. Set callback URL: `https://your-domain.com/api/shopify`
-4. Add credentials to `.env.local`
-
-### Klaviyo Setup
-
-1. Get API keys from Klaviyo Settings → API Keys
-2. Create both Private and Public API keys
-3. Add to `.env.local`
-
-### WhatsApp Business Setup
-
-1. Create a Meta Business account
-2. Set up WhatsApp Business API at [developers.facebook.com](https://developers.facebook.com)
-3. Configure webhook URL: `https://your-domain.com/api/whatsapp`
-4. Add credentials to `.env.local`
-
----
 
 ## 🎨 Design System
 
-The app uses a custom dark theme with glass morphism effects:
+### Cores principais
+- **Background:** `#0A0A0B` (dark)
+- **Surface:** `#1C1C1F`
+- **Brand Purple:** `#8B5CF6`
+- **Brand Cyan:** `#06B6D4`
+- **Success:** `#22C55E`
+- **Warning:** `#F59E0B`
+- **Error:** `#EF4444`
 
-### Colors
-- **Primary**: Purple/Violet (`#8b5cf6`)
-- **Accent**: Electric Cyan (`#06b6d4`)
-- **Background**: Deep Navy (`#020617` → `#0f172a`)
-- **Success**: Emerald (`#10b981`)
-- **Warning**: Amber (`#f59e0b`)
-- **Error**: Rose (`#f43f5e`)
+## 🔐 Perfis de Usuário
 
-### Effects
-- Glass morphism with backdrop blur
-- Gradient borders
-- Glow shadows
-- Smooth animations
+| Perfil | Permissões |
+|--------|-----------|
+| Admin | Acesso total |
+| Gestor | Clientes, Pipeline, Métricas, Relatórios |
+| SDR | Leads, Pipeline (criar) |
+| Closer | Pipeline, Clientes (ver), Reuniões |
+| CS | Clientes, Reuniões, Relatórios, Métricas |
+| Financeiro | Faturas, Pagamentos, Clientes (ver) |
 
----
+## 📝 Próximos Passos
 
-## 📝 API Routes
+- [ ] Implementar autenticação com Supabase Auth
+- [ ] Conectar APIs reais (Asaas, Meta, etc.)
+- [ ] Implementar Edge Functions para automações
+- [ ] Adicionar Realtime para notificações
+- [ ] Implementar geração de relatórios PDF
+- [ ] Adicionar testes automatizados
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/auth` | POST | Login, signup, logout |
-| `/api/shopify` | GET/POST | OAuth & webhooks |
-| `/api/klaviyo` | GET/POST | Sync & campaigns |
-| `/api/whatsapp` | GET/POST | Messages & webhooks |
-| `/api/contacts` | CRUD | Contact management |
-| `/api/deals` | CRUD | Deal/pipeline management |
-| `/api/automations` | CRUD | Automation workflows |
-| `/api/analytics` | GET | Dashboard metrics |
-| `/api/dashboard/metrics` | GET | Aggregated dashboard data |
-| `/api/integrations/meta` | GET/POST/DELETE | Facebook Ads integration |
-| `/api/integrations/google` | GET/POST/DELETE | Google Ads integration |
-| `/api/integrations/tiktok` | GET/POST/DELETE | TikTok Ads integration |
+## 📄 Licença
 
----
-
-## 🚢 Deployment
-
-### Vercel (Recommended)
-
-1. Push to GitHub
-2. Import project in Vercel
-3. Add environment variables
-4. Deploy
-
-```bash
-# Or use Vercel CLI
-vercel --prod
-```
-
-### Environment Variables for Production
-
-Ensure all variables from `.env.example` are set in your deployment platform.
-
----
-
-## 🧪 Development
-
-```bash
-# Start development server
-npm run dev
-
-# Type checking
-npm run type-check
-
-# Linting
-npm run lint
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-```
-
----
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
----
-
-## 📞 Support
-
-- Documentation: [docs.worder.com](https://docs.worder.com)
-- Email: support@worder.com
-- Discord: [Join our community](https://discord.gg/worder)
-
----
-
-<div align="center">
-  <p>Built with ❤️ by Convertfy</p>
-</div>
+Este projeto é proprietário da Convertfy.
